@@ -109,12 +109,23 @@ class WsgiMiddleware(object):
         if (_ENABLED is not None and not _ENABLED
                 or _ENABLED is None and not self.enabled):
             return request.get_response(self.application)
-
+        # Openstack context propagator
         trace_info = utils.signed_unpack(request.headers.get(X_TRACE_INFO),
                                          request.headers.get(X_TRACE_HMAC),
                                          _HMAC_KEYS or self.hmac_keys)
 
-        if not self._trace_is_valid(trace_info):
+        openstack_prop_valid = self._trace_is_valid(trace_info)
+        jaeger_prop_valid = False
+        if not openstack_prop_valid:
+            try:
+                from jaeger_client.codecs import TextCodec
+                span_context = TextCodec().extract(request.headers)
+                if span_context is not None and span_context.trace_id and  span_context.span_id:
+                    profiler.init(hmac_key=_HMAC_KEYS[0], parent_id=utils.int128_to_uuid(span_context.span_id), base_id=utils.int128_to_uuid(span_context.trace_id))
+                    jaeger_prop_valid = True
+            except ImportError:
+                pass
+        if not(openstack_prop_valid or jaeger_prop_valid):
             return request.get_response(self.application)
 
         profiler.init(**trace_info)

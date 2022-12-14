@@ -72,8 +72,8 @@ class Jaeger(base.Driver):
 
             # Create parent span
             child_of = self.jaeger_client.SpanContext(
-                trace_id=utils.shorten_id(payload["base_id"]),
-                span_id=utils.shorten_id(payload["parent_id"]),
+                trace_id=utils.uuid_to_int128(payload["base_id"]),
+                span_id=utils.uuid_to_int128(payload["parent_id"]),
                 parent_id=None,
                 flags=self.jaeger_client.span.SAMPLED_FLAG
             )
