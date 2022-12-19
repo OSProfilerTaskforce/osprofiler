@@ -128,8 +128,8 @@ class WsgiMiddleware(object):
                 from jaeger_client.codecs import TextCodec
                 span_context = TextCodec().extract(request.headers)
                 if span_context is not None and span_context.trace_id and span_context.span_id:
-                    profiler.init(hmac_key=_HMAC_KEYS[0], parent_id=int128_to_uuid(span_context.span_id),
-                                  base_id=int128_to_uuid(span_context.trace_id))
+                    trace_info = {"hmac_key": _HMAC_KEYS[0], "parent_id": int128_to_uuid(span_context.span_id),
+                                  "base_id": int128_to_uuid(span_context.trace_id)}
                     jaeger_prop_valid = True
             except ImportError:
                 pass
