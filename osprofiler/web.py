@@ -12,12 +12,12 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import uuid
 
 import webob.dec
 
 from osprofiler import _utils as utils
 from osprofiler import profiler
-
 
 # Trace keys that are required or optional, any other
 # keys that are present will cause the trace to be rejected...
@@ -46,6 +46,12 @@ def get_trace_id_headers():
 
 _ENABLED = None
 _HMAC_KEYS = None
+
+
+def int128_to_uuid(span_int):
+    s = "{:x}".format(span_int)
+    # uuid.UUID expects a 32 hex digits string even if leading bits are '0'
+    return str(uuid.UUID("0" * (32 - len(s)) + s))
 
 
 def disable():
@@ -92,6 +98,7 @@ class WsgiMiddleware(object):
     def factory(cls, global_conf, **local_conf):
         def filter_(app):
             return cls(app, **local_conf)
+
         return filter_
 
     def _trace_is_valid(self, trace_info):
@@ -109,12 +116,24 @@ class WsgiMiddleware(object):
         if (_ENABLED is not None and not _ENABLED
                 or _ENABLED is None and not self.enabled):
             return request.get_response(self.application)
-
+        # Openstack context propagator
         trace_info = utils.signed_unpack(request.headers.get(X_TRACE_INFO),
                                          request.headers.get(X_TRACE_HMAC),
                                          _HMAC_KEYS or self.hmac_keys)
 
-        if not self._trace_is_valid(trace_info):
+        openstack_prop_valid = self._trace_is_valid(trace_info)
+        jaeger_prop_valid = False
+        if not openstack_prop_valid:
+            try:
+                from jaeger_client.codecs import TextCodec
+                span_context = TextCodec().extract(request.headers)
+                if span_context is not None and span_context.trace_id and span_context.span_id:
+                    trace_info = {"hmac_key": _HMAC_KEYS[0], "parent_id": int128_to_uuid(span_context.span_id),
+                                  "base_id": int128_to_uuid(span_context.trace_id)}
+                    jaeger_prop_valid = True
+            except ImportError:
+                pass
+        if not (openstack_prop_valid or jaeger_prop_valid):
             return request.get_response(self.application)
 
         profiler.init(**trace_info)
