@@ -172,9 +172,3 @@ def uuid_to_int128(span_uuid):
         # Return a new short id for this
         span_int = uuid_to_int128(uuidutils.generate_uuid())
     return span_int
-
-
-def int128_to_uuid(span_int):
-    s = "{:x}".format(span_int)
-    # uuid.UUID expects a 32 hex digits string even if leading bits are '0'
-    return str(uuid.UUID("0" * (32 - len(s)) + s))
