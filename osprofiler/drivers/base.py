@@ -41,6 +41,8 @@ def get_driver(connection_string, *args, **kwargs):
     if backend in ["mysql", "mysql+pymysql", "mysql+mysqldb",
                    "postgresql", "postgresql+psycopg2"]:
         backend = "sqlalchemy"
+    if backend in ["opentelemetry+jaeger"]:
+        backend = "opentelemetry"
     for driver in _utils.itersubclasses(Driver):
         if backend == driver.get_name():
             return driver(connection_string, *args, **kwargs)
