@@ -86,7 +86,7 @@ class Opentelemetry(Jaeger):
             ctx = self.trace.set_span_in_context(self.trace.NonRecordingSpan(span_context))
             # Create Jaeger Tracing span
             span = self.tracer.start_span(
-                name=payload["name"].rstrip("-start"),
+                name=removesuffix(payload["name"], "-start"),
                 context=ctx,
                 attributes=self.create_span_tags(payload),
                 start_time=int(start_time * 1000000000)
@@ -119,3 +119,9 @@ class Opentelemetry(Jaeger):
                 })
             # Time is in nanosecond (10^9)
             span.end(end_time=int(time.time() * 1000000000))
+
+
+def removesuffix(string, suffix):
+    if string.endswith(suffix):
+        return string[:-len(suffix)]
+    return string
