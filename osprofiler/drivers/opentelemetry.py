@@ -45,6 +45,7 @@ class Opentelemetry(Jaeger):
             from opentelemetry.sdk.trace import TracerProvider
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
             from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+            self.trace = trace
             resource = Resource.create({"service.name": "{}-{}".format(project, service)})
             trace.set_tracer_provider(TracerProvider(resource=resource))
             parsed_url = parser.urlparse(connection_str)
@@ -76,16 +77,13 @@ class Opentelemetry(Jaeger):
                                                    "%Y-%m-%dT%H:%M:%S.%f")
             epoch = datetime.datetime.utcfromtimestamp(0)
             start_time = (timestamp - epoch).total_seconds()
-            from opentelemetry import trace
-            from opentelemetry.trace.propagation import set_span_in_context
-
-            span_context = trace.SpanContext(
+            span_context = self.trace.SpanContext(
                 trace_id=utils.uuid_to_int128(payload["base_id"]),
                 span_id=utils.shorten_id(payload["parent_id"]),
                 is_remote=False,
-                trace_flags=trace.TraceFlags(trace.TraceFlags.SAMPLED)
+                trace_flags=self.trace.TraceFlags(self.trace.TraceFlags.SAMPLED)
             )
-            ctx = trace.set_span_in_context(trace.NonRecordingSpan(span_context))
+            ctx = self.trace.set_span_in_context(self.trace.NonRecordingSpan(span_context))
             # Create Jaeger Tracing span
             span = self.tracer.start_span(
                 name=payload["name"].rstrip("-start"),
@@ -95,7 +93,7 @@ class Opentelemetry(Jaeger):
             )
             # Replace Jaeger Tracing span_id (random id) to OSProfiler span_id
             # SpanContext is immutable and there is no easy method to set span_id at span creation
-            c = trace.SpanContext(
+            c = self.trace.SpanContext(
                 trace_id=span.context.trace_id,
                 span_id=utils.shorten_id(payload["trace_id"]),
                 is_remote=span.context.is_remote,
