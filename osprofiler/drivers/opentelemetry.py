@@ -18,6 +18,7 @@ import datetime
 import time
 from urllib import parse as parser
 
+from opentelemetry.trace import SpanKind
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 
@@ -26,6 +27,7 @@ from osprofiler import exc
 import logging
 
 from osprofiler.drivers.jaeger import Jaeger
+from osprofiler.drivers.utils import clean_url
 
 LOG = logging.getLogger(__name__)
 
@@ -86,7 +88,8 @@ class Opentelemetry(Jaeger):
             ctx = self.trace.set_span_in_context(self.trace.NonRecordingSpan(span_context))
             # Create Jaeger Tracing span
             span = self.tracer.start_span(
-                name=removesuffix(payload["name"], "-start"),
+                name=operation_name(payload),
+                kind=span_kind(payload),
                 context=ctx,
                 attributes=self.create_span_tags(payload),
                 start_time=int(start_time * 1000000000)
@@ -119,6 +122,26 @@ class Opentelemetry(Jaeger):
                 })
             # Time is in nanosecond (10^9)
             span.end(end_time=int(time.time() * 1000000000))
+
+
+def operation_name(payload):
+    info = payload["info"]
+    if info.get("request"):
+        return info["request"]["method"] + "_" + clean_url(info["request"]["path"])
+    if info.get("db"):
+        return "SQL" + "_" + info["db"]["statement"].split(' ', 1)[0].upper()
+    if info.get("requests"):
+        return info["requests"]["method"]
+    return removesuffix(payload["name"], "-start")
+
+
+def span_kind(payload):
+    span_type = {
+        "wsgi": SpanKind.SERVER,
+        "db": SpanKind.CLIENT,
+        "http_client": SpanKind.CLIENT
+    }
+    return span_type.get(removesuffix(payload["name"], "-start"), SpanKind.INTERNAL)
 
 
 def removesuffix(string, suffix):
