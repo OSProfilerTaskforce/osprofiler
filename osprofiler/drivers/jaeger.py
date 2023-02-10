@@ -24,6 +24,7 @@ from oslo_serialization import jsonutils
 from osprofiler import _utils as utils
 from osprofiler.drivers import base
 from osprofiler import exc
+import traceback
 
 
 class Jaeger(base.Driver):
@@ -132,6 +133,7 @@ class Jaeger(base.Driver):
             # DB calls
             tags["db.statement"] = info["db"]["statement"]
             tags["db.params"] = jsonutils.dumps(info["db"]["params"])
+            tags["traceback"] = traceback.format_stack()
         elif info.get("request"):
             # WSGI call
             tags["http.path"] = info["request"]["path"]
