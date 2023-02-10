@@ -124,7 +124,7 @@ def itersubclasses(cls, _seen=None):
     _seen = _seen or set()
     try:
         subs = cls.__subclasses__()
-    except TypeError:   # fails only when cls is type
+    except TypeError:  # fails only when cls is type
         subs = cls.__subclasses__(cls)
     for sub in subs:
         if sub not in _seen:
@@ -161,3 +161,14 @@ def shorten_id(span_id):
         # Return a new short id for this
         short_id = shorten_id(uuidutils.generate_uuid())
     return short_id
+
+
+def uuid_to_int128(span_uuid):
+    if isinstance(span_uuid, int):
+        return span_uuid
+    try:
+        span_int = uuid.UUID(span_uuid).int
+    except ValueError:
+        # Return a new short id for this
+        span_int = uuid_to_int128(uuidutils.generate_uuid())
+    return span_int
